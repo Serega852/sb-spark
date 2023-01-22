@@ -5,6 +5,8 @@ class DataReader(session: SparkSession) extends Reader {
   def cassandra: DataFrame = {
     session.read
            .format("org.apache.spark.sql.cassandra")
+           .option("spark.cassandra.connection.host", "10.0.0.31")
+           .option("spark.cassandra.connection.port", "9042")
            .option("keyspace", "labdata")
            .option("table", "clients")
            .load
