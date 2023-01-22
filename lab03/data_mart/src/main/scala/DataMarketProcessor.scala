@@ -1,15 +1,15 @@
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 
 import java.net.{URL, URLDecoder}
 import scala.util.Try
 
-class DataMart(session: SparkSession, reader: Reader) {
+class DataMarketProcessor(session: SparkSession, reader: Reader, writer: Writer) {
 
   import session.implicits._
 
-  def writeData(): Unit = {
+  def writeMarketInfo(): Unit = {
     val clients = reader.cassandra.where("uid is not null")
     val visits = reader.elasticsearch.where("uid is not null")
     val logs = reader.json.where("uid is not null")
@@ -47,10 +47,11 @@ class DataMart(session: SparkSession, reader: Reader) {
       .fill(0)
       .drop("category")
 
-    clientsAgeCat
+    val resultDf = clientsAgeCat
       .join(visitsCategories, "uid")
       .join(logsWebCategories, "uid")
-      .show()
+
+    writer.write(resultDf)
   }
 
   def decodeUrlAndGetDomain: UserDefinedFunction = udf((url: String) => {

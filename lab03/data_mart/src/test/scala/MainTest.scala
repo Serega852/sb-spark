@@ -6,5 +6,5 @@ object MainTest extends App {
                                     .master("local[*]")
                                     .getOrCreate()
   session.sparkContext.setLogLevel("WARN")
-  new DataMart(session, new DfReader(session)).writeData()
+  new DataMarketProcessor(session, new DfReader(session), new ShowWriter()).writeMarketInfo()
 }

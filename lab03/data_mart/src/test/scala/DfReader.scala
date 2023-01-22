@@ -9,7 +9,7 @@ class DfReader(session: SparkSession) extends Reader {
   }
 
   override def json: DataFrame = {
-    session.read.json("../data/laba03/hdfs")
+    session.read.json("../../../data/laba03/hdfs")
   }
 
   override def postgres: DataFrame = {
@@ -17,7 +17,7 @@ class DfReader(session: SparkSession) extends Reader {
   }
 
   private def parquet(dfName: String) = {
-    session.read.parquet(s"../data/laba03/${dfName}")
+    session.read.parquet(s"../../../data/laba03/${dfName}")
   }
 
 }

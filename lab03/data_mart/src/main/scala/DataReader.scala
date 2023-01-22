@@ -1,6 +1,6 @@
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-class SparkReader(session: SparkSession) extends Reader {
+class DataReader(session: SparkSession) extends Reader {
   @Override
   def cassandra: DataFrame = {
     session.read
