@@ -29,8 +29,6 @@ class DataMarketProcessor(session: SparkSession, reader: Reader, writer: Writer)
       .groupBy("uid")
       .pivot("category")
       .count()
-      .na
-      .fill(0)
       .drop("category")
 
     val preparedWebCategories = cats.withColumn("category", concat(lit("web_"), $"category"))
@@ -44,15 +42,16 @@ class DataMarketProcessor(session: SparkSession, reader: Reader, writer: Writer)
       .groupBy("uid")
       .pivot("category")
       .count()
-      .na
-      .fill(0)
       .drop("category")
 
-    val resultDf = clientsAgeCat.alias("clients")
-      .join(visitsCategories, "uid")
+    val resultDf = clientsAgeCat
+      .join(visitsCategories, Seq("uid"), "left")
       .join(logsWebCategories, "uid")
+      .na
+      .fill(0)
+      .drop("null")
 
-    writer.write(resultDf)
+    writer.write(resultDf.cache())
   }
 
   def decodeUrlAndGetDomain: UserDefinedFunction = udf((url: String) => {
