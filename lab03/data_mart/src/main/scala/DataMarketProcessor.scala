@@ -26,7 +26,7 @@ class DataMarketProcessor(session: SparkSession, reader: Reader, writer: Writer)
 
     val visitsCategories = visits
       .withColumn("category", concat(lit("shop_"), lower(regexp_replace($"category", "[ -]", "_"))))
-      .groupBy("uid", "category")
+      .groupBy("uid")
       .pivot("category")
       .count()
       .na
@@ -39,7 +39,8 @@ class DataMarketProcessor(session: SparkSession, reader: Reader, writer: Writer)
       .withColumn("visits", explode($"visits"))
       .select($"uid", $"visits.url")
       .select($"uid", decodeUrlAndGetDomain($"url").as("domain"))
-      .join(preparedWebCategories, "domain")
+      .alias("logs")
+      .join(preparedWebCategories.alias("cat"), $"logs.domain" === $"cat.domain", "left")
       .groupBy("uid")
       .pivot("category")
       .count()
@@ -47,7 +48,7 @@ class DataMarketProcessor(session: SparkSession, reader: Reader, writer: Writer)
       .fill(0)
       .drop("category")
 
-    val resultDf = clientsAgeCat
+    val resultDf = clientsAgeCat.alias("clients")
       .join(visitsCategories, "uid")
       .join(logsWebCategories, "uid")
 
