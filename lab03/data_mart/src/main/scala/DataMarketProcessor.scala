@@ -40,7 +40,7 @@ class DataMarketProcessor(session: SparkSession, reader: Reader, writer: Writer)
       .select($"uid", $"visits.url")
       .select($"uid", decodeUrlAndGetDomain($"url").as("domain"))
       .join(preparedWebCategories, "domain")
-      .groupBy("uid", "category")
+      .groupBy("uid")
       .pivot("category")
       .count()
       .na
