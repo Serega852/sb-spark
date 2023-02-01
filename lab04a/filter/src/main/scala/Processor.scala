@@ -7,7 +7,7 @@ class Processor(session: SparkSession, reader: Reader, outputDir: String) {
   private val basePath = Paths.get(outputDir)
   import session.implicits._
 
-  def run() = {
+  def run = {
     val raw = reader.read
                     .select($"value".cast("string"))
                     .as[String]
