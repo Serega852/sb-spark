@@ -1,5 +1,6 @@
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
-import org.apache.spark.sql.functions.{concat, lit, lower, regexp_replace}
+import org.apache.spark.sql.functions.{col, concat, lit, lower, regexp_replace}
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession, functions}
 
 class Matrix(spark: SparkSession, inputDir: String, outputDir: String, isUpdate: Boolean) {
@@ -16,7 +17,6 @@ class Matrix(spark: SparkSession, inputDir: String, outputDir: String, isUpdate:
                            .first()
                            .getAs("date")
 
-    val saveMode = if (isUpdate) SaveMode.Overwrite else SaveMode.Append
     val readingCondition = if (isUpdate) s"p_date == ${maxDate}" else "true"
 
     val calculatedMatrix = prepareDf(view, "view", readingCondition)
@@ -29,24 +29,21 @@ class Matrix(spark: SparkSession, inputDir: String, outputDir: String, isUpdate:
       .drop("item_id")
 
     if (isUpdate) {
-      spark
+      val outputDf = spark
         .read
         .parquet(s"${outputDir}/*")
-        .write
-        .parquet(s"${outputDir}/tmp")
 
-      calculatedMatrix
+      val mergedCols = outputDf.columns.toSet ++ calculatedMatrix.columns.toSet
+      outputDf
+        .select(getNewColumns(outputDf.columns.toSet, mergedCols): _*)
+        .union(calculatedMatrix.select(getNewColumns(calculatedMatrix.columns.toSet, mergedCols): _*))
         .write
-        .option("mergeSchema", "true")
-        .mode(saveMode)
-        .parquet(s"${outputDir}/tmp")
-
-      FileSystem.get(spark.sparkContext.hadoopConfiguration)
-                .rename(new Path(s"${outputDir}/tmp"), new Path(s"${outputDir}/${maxDate}"))
+        .mode(SaveMode.Overwrite)
+        .parquet(s"${outputDir}/${maxDate}")
     } else {
       calculatedMatrix
         .write
-        .mode(saveMode)
+        .mode(SaveMode.Overwrite)
         .parquet(s"${outputDir}/${maxDate}")
     }
   }
@@ -59,5 +56,12 @@ class Matrix(spark: SparkSession, inputDir: String, outputDir: String, isUpdate:
                   concat(lit(s"${prefix}_"),
                          lower(regexp_replace($"item_id", "[ -]", "_"))))
       .cache()
+  }
+
+  def getNewColumns(column: Set[String], merged_cols: Set[String]) = {
+    merged_cols.toList.map {
+      case x if column.contains(x) => col(x)
+      case x => lit(0).as(x)
+    }
   }
 }
