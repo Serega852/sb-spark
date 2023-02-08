@@ -1,3 +1,4 @@
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.sql.functions.{concat, lit, lower, regexp_replace}
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession, functions}
 
@@ -18,17 +19,36 @@ class Matrix(spark: SparkSession, inputDir: String, outputDir: String, isUpdate:
     val saveMode = if (isUpdate) SaveMode.Overwrite else SaveMode.Append
     val readingCondition = if (isUpdate) s"p_date == ${maxDate}" else "true"
 
-    prepareDf(view, "view", readingCondition)
-      .union(prepareDf(buy, "buy", readingCondition))
+    val calculatedMatrix = prepareDf(view, "view", readingCondition)
+      .unionByName(prepareDf(buy, "buy", readingCondition))
       .groupBy("uid")
       .pivot("item_id")
       .count()
       .na
       .fill(0)
       .drop("item_id")
-      .write
-      .mode(saveMode)
-      .parquet(s"${outputDir}/${maxDate}")
+
+    if (isUpdate) {
+      spark
+        .read
+        .parquet(s"${outputDir}/*")
+        .write
+        .parquet(s"${outputDir}/tmp")
+
+      calculatedMatrix
+        .write
+        .option("mergeSchema", "true")
+        .mode(saveMode)
+        .parquet(s"${outputDir}/tmp")
+
+      FileSystem.get(spark.sparkContext.hadoopConfiguration)
+                .rename(new Path(s"${outputDir}/tmp"), new Path(s"${outputDir}/${maxDate}"))
+    } else {
+      calculatedMatrix
+        .write
+        .mode(saveMode)
+        .parquet(s"${outputDir}/${maxDate}")
+    }
   }
 
   private def prepareDf(df: DataFrame, prefix: String, readingCondition: String) = {
