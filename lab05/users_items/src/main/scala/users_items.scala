@@ -1,12 +1,8 @@
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
 object users_items extends App {
-  private def getSaveMode = {
-    if (session.sparkContext.getConf.get("spark.users_items.update", "1") == "0") {
-      SaveMode.Overwrite
-    } else {
-      SaveMode.Append
-    }
+  private def isUpdate = {
+    session.sparkContext.getConf.get("spark.users_items.update", "1") == "1"
   }
 
   private val session = SparkSession.builder()
@@ -15,7 +11,6 @@ object users_items extends App {
                                     .getOrCreate()
   val inputDir = session.sparkContext.getConf.get("spark.users_items.input_dir")
   val outputDir = session.sparkContext.getConf.get("spark.users_items.output_dir")
-  val mode = getSaveMode
 
-  new Matrix(session, inputDir, outputDir, mode).run
+  new Matrix(session, inputDir, outputDir, isUpdate).run
 }
