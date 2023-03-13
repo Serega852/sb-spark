@@ -1,4 +1,4 @@
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{SaveMode, SparkSession}
 import org.apache.spark.sql.functions.{array, callUDF, col, concat, count, date_format, desc, explode, from_unixtime, lit, lower, regexp_replace, when}
 
 class DataTransformation(spark: SparkSession, reader: Reader, resultPath: String) {
@@ -34,22 +34,35 @@ class DataTransformation(spark: SparkSession, reader: Reader, resultPath: String
       .drop("time")
       .drop("domain")
 
-    val work = sites
+    val totalTime = sites
       .withColumn("time", lower(date_format(($"sites.timestamp" / 1000).cast("timestamp"), "H")))
-      .withColumn("web_fraction_work_hours", when($"time" >= 9 && $"time" < 18, "work"))
       .groupBy("uid")
       .count().na.fill(0)
+      .select($"uid", $"count".as("total_time"))
+      .drop("time")
+
+    val work = sites
+      .join(totalTime, "uid")
+      .withColumn("time", lower(date_format(($"sites.timestamp" / 1000).cast("timestamp"), "H")))
+      .withColumn("web_fraction_work_hours", when($"time" >= 9 && $"time" < 18, 1))
+      .groupBy("uid", "total_time")
+      .sum("web_fraction_work_hours").na.fill(0)
       .drop("web_fraction_work_hours")
-      .select($"uid", $"count".as("web_fraction_work_hours"))
+      .select($"uid",
+              $"sum(web_fraction_work_hours)".divide($"total_time")
+                                             .as("web_fraction_work_hours"))
       .drop("time")
 
     val evening = sites
+      .join(totalTime, "uid")
       .withColumn("time", lower(date_format(($"sites.timestamp" / 1000).cast("timestamp"), "H")))
-      .withColumn("web_fraction_evening_hours", when(($"time" >= 18 && $"time" < 23) || $"time" === 0, "evening"))
-      .groupBy("uid")
-      .count().na.fill(0)
+      .withColumn("web_fraction_evening_hours", when(($"time" >= 18 && $"time" < 23) || $"time" === 0, 1))
+      .groupBy("uid", "total_time")
+      .sum("web_fraction_evening_hours").na.fill(0)
       .drop("web_fraction_evening_hours")
-      .select($"uid", $"count".as("web_fraction_evening_hours"))
+      .select($"uid",
+              $"sum(web_fraction_evening_hours)".divide($"total_time")
+                                                .as("web_fraction_evening_hours"))
       .drop("time")
       .drop("domain")
 
@@ -75,21 +88,24 @@ class DataTransformation(spark: SparkSession, reader: Reader, resultPath: String
                                       .map(v => s"`${v}`")
                                       .map(col)
 
-    val domainsFeatures = columnSites.withColumn("domains_features", array(sitesColumnNames: _*))
-                                     .select("uid", "domains_features")
+    val domainsFeatures = columnSites.withColumn("domain_features", array(sitesColumnNames: _*))
+                                     .withColumn("domain_features", $"domain_features".cast("array<int>"))
+                                     .select("uid", "domain_features")
 
     val result = webDays.join(webHour, "uid")
                         .join(work, "uid")
                         .join(evening, "uid")
                         .join(domainsFeatures, "uid")
 
-    reader.readUserItems().as("parquet")
-          .join(result.as("result"), $"parquet.uid" === $"result.uid", "left")
+    result.as("result")
+          .join(reader.readUserItems().as("parquet"), $"parquet.uid" === $"result.uid")
+          .drop($"result.uid")
+          .withColumn("parquet.uid", $"parquet.uid".as("uid"))
           .write
+          .mode(SaveMode.Overwrite)
           .parquet(resultPath)
 
+        spark.read.parquet(resultPath).count()
 
-    //          .where("uid = 'bb31cbb5-78c6-4980-92b9-781a370bc781'")
-    //          .show(false)
   }
 }
