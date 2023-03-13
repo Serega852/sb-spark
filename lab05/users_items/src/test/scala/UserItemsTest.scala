@@ -7,5 +7,5 @@ object UserItemsTest extends App {
                                     .config("spark.sql.session.timeZone", "UTC")
                                     .getOrCreate()
   session.sparkContext.setLogLevel("WARN")
-  new Matrix(session, "../../../data/laba04/result", "target/result", true).run
+  new Matrix(session, "../../../data/laba04/result", "target/result", false).run
 }
