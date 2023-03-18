@@ -40,16 +40,6 @@ class MlTest(spark: SparkSession, reader: Reader, modelPath: String, outputTopic
                                          .save())
           .start()
           .awaitTermination(10.minutes.toMillis)
-
-    //    val test = spark.read.parquet("../../../data/laba07/kafka")
-    //                    .select($"value".cast("string"))
-    //                    .as[String]
-    //                    .select(from_json($"value", jsonSchema).as("value"))
-    //                    .select($"value.uid".as("uid"), $"value.visits.url".as("url"))
-    //                    .select($"uid", decodeUrlAndGetDomain($"url").as("domains"))
-    //
-    //    test.show()
-    //    model.transform(test).select($"uid", $"gender_age_tmp".as("gender_age")).show()
   }
 
   def decodeUrlAndGetDomain: UserDefinedFunction = udf((urls: mutable.WrappedArray[String]) => {
