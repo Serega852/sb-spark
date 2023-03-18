@@ -8,6 +8,6 @@ object MlTrainerTest extends App {
                                     .config("spark.sql.session.timeZone", "UTC")
                                     .getOrCreate()
   session.sparkContext.setLogLevel("WARN")
-//  new MlTrainer(session, new LocalReader(session), "target/result/model").run()
-  new MlTest(session, new LocalReader(session), "target/result/model", "sergey_maslakov_lab07_out").run()
+  new MlTrainer(session, new LocalReader(session), "target/result/model").run()
+//  new MlTest(session, new LocalReader(session), "target/result/model", "sergey_maslakov_lab07_out").run()
 }

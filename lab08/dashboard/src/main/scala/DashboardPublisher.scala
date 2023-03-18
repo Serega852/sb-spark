@@ -1,5 +1,5 @@
 import org.apache.spark.ml.PipelineModel
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{SaveMode, SparkSession}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.udf
 
@@ -26,6 +26,7 @@ class DashboardPublisher(spark: SparkSession, jsonPath: String, modelPath: Strin
          .option("es.read.metadata", value = true)
          .option("es.nodes.wan.only", value = true)
          .option("es.net.ssl", value = false)
+         .mode(SaveMode.Overwrite)
          .save("sergey_maslakov_lab08/_doc")
 
   }
